@@ -658,7 +658,8 @@ label {
 .eg-plate__slots {
   display: flex;
   gap: 0.3rem;
-  direction: rtl;
+  direction: ltr;
+  /* data is already stored in LTR visual order (sorted by x_center) */
 }
 
 .eg-plate__slot {
@@ -673,6 +674,24 @@ label {
   font-size: 1.15rem;
   font-weight: 700;
   color: #1a1a1a;
+}
+
+.eg-plate__slot--empty {
+  color: #aaa;
+  border-style: dashed;
+  background: transparent;
+}
+
+.eg-plate__warning {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: #fdf6b2;
+  color: #8a6d3b;
+  border: 1px solid #faecc1;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
 }
 
 .eg-plate__divider {

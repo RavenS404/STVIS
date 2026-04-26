@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { AuditTimeline } from "../components/AuditTimeline";
@@ -10,11 +10,7 @@ import { StatusBadge } from "../components/StatusBadge";
 import {
   formatCaseNumber,
   formatDateTimeAr,
-  formatPlateSummary,
   getHighlightedViolation,
-  plateReadinessLabel,
-  summarizeReviewFlags,
-  translateAssociationStatus,
 } from "../app/presentation";
 import { fetchAuditLogs } from "../services/audit";
 import { applyCaseDecision, fetchCaseDetail, fetchCases } from "../services/cases";
@@ -22,9 +18,14 @@ import { applyCaseDecision, fetchCaseDetail, fetchCases } from "../services/case
 export function CaseDetailsPage() {
   const { caseId = "" } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const [notes, setNotes] = useState("");
   const [plateOverrideAr, setPlateOverrideAr] = useState("");
+
+  // History navigation context — HistoryPage passes {from:'history', ids:[...]} in route state
+  const routeState = (location.state ?? {}) as { from?: string; ids?: string[] };
+  const historyIds: string[] = routeState.from === "history" ? (routeState.ids ?? []) : [];
 
   const caseQuery = useQuery({ queryKey: ["case", caseId], queryFn: () => fetchCaseDetail(caseId), enabled: Boolean(caseId) });
   const auditQuery = useQuery({
@@ -32,15 +33,20 @@ export function CaseDetailsPage() {
     queryFn: () => fetchAuditLogs(1, { entity_type: "vehicle_case", entity_id: caseId }),
   });
 
+  // Review queue navigation (only loaded when not coming from history)
   const queueQuery = useQuery({
     queryKey: ["cases", "review", ""],
     queryFn: () => fetchCases({ only_supervisor_queue: true }),
     staleTime: 30_000,
+    enabled: historyIds.length === 0,
   });
-  const queueIds = queueQuery.data?.items.map((item) => item.id) ?? [];
-  const currentIdx = queueIds.indexOf(caseId);
-  const prevId = currentIdx > 0 ? queueIds[currentIdx - 1] : null;
-  const nextId = currentIdx >= 0 && currentIdx < queueIds.length - 1 ? queueIds[currentIdx + 1] : null;
+
+  // Determine which list to navigate within
+  const navIds = historyIds.length > 0 ? historyIds : (queueQuery.data?.items.map((item) => item.id) ?? []);
+  const currentIdx = navIds.indexOf(caseId);
+  const prevId = currentIdx > 0 ? navIds[currentIdx - 1] : null;
+  const nextId = currentIdx >= 0 && currentIdx < navIds.length - 1 ? navIds[currentIdx + 1] : null;
+  const navState = historyIds.length > 0 ? routeState : undefined;
 
   const mutation = useMutation({
     mutationFn: (decision: string) =>
@@ -86,8 +92,8 @@ export function CaseDetailsPage() {
                 <h2 style={{ margin: 0, fontSize: "1.15rem" }}>{formatCaseNumber(detail.case_number)}</h2>
               </div>
               <div className="case-nav-actions">
-                <button className="ghost-button case-nav-btn" disabled={!prevId} onClick={() => prevId && navigate(`/cases/${prevId}`)}>السابق</button>
-                <button className="ghost-button case-nav-btn" disabled={!nextId} onClick={() => nextId && navigate(`/cases/${nextId}`)}>التالي</button>
+                <button className="ghost-button case-nav-btn" disabled={!prevId} onClick={() => prevId && navigate(`/cases/${prevId}`, { state: navState })}>السابق</button>
+                <button className="ghost-button case-nav-btn" disabled={!nextId} onClick={() => nextId && navigate(`/cases/${nextId}`, { state: navState })}>التالي</button>
               </div>
             </div>
 
@@ -112,29 +118,44 @@ export function CaseDetailsPage() {
               </div>
             )}
 
-            {/* Plate reading — Egyptian style */}
-            <div className="eg-plate" style={{ marginTop: "0.75rem" }}>
-              <div className="eg-plate__header">مصر</div>
-              <div className="eg-plate__body">
-                <div className="eg-plate__section">
-                  <span className="eg-plate__label">الحروف</span>
-                  <div className="eg-plate__slots">
-                    {(detail.plate_read?.letters_ar || "—").split("").filter(c => c.trim()).map((ch, i) => (
-                      <span key={i} className="eg-plate__slot">{ch}</span>
-                    ))}
+            {/* Plate reading — Egyptian style. Slots are in LTR visual order (sorted by x_center in backend). */}
+            {(() => {
+              const plateRead = detail.plate_read;
+              const isUnclear = !plateRead ||
+                (plateRead.display_summary_ar?.includes("غير واضحة") || plateRead.display_summary_ar?.includes("غير مؤكدة") || plateRead.display_summary_ar?.includes("مكتملة"));
+              // letters_ar and digits_ar are already in left-to-right visual order from backend
+              const letterSlots = (plateRead?.letters_ar || "").split("").filter(c => c.trim());
+              const digitSlots = (plateRead?.digits_ar || "").split("").filter(c => c.trim());
+              return (
+                <div className="eg-plate" style={{ marginTop: "0.75rem" }}>
+                  <div className="eg-plate__header">مصر</div>
+                  <div className="eg-plate__body">
+                    <div className="eg-plate__section">
+                      <span className="eg-plate__label">الحروف</span>
+                      <div className="eg-plate__slots">
+                        {letterSlots.length ? letterSlots.map((ch, i) => (
+                          <span key={i} className="eg-plate__slot">{ch}</span>
+                        )) : <span className="eg-plate__slot eg-plate__slot--empty">—</span>}
+                      </div>
+                    </div>
+                    <div className="eg-plate__divider" />
+                    <div className="eg-plate__section">
+                      <span className="eg-plate__label">الأرقام</span>
+                      <div className="eg-plate__slots">
+                        {digitSlots.length ? digitSlots.map((ch, i) => (
+                          <span key={i} className="eg-plate__slot">{ch}</span>
+                        )) : <span className="eg-plate__slot eg-plate__slot--empty">—</span>}
+                      </div>
+                    </div>
                   </div>
+                  {isUnclear && (
+                    <div className="eg-plate__warning">
+                      ⚠ {plateRead?.display_summary_ar ?? "لوحة غير متاحة"} — يُرجى التحقق يدوياً
+                    </div>
+                  )}
                 </div>
-                <div className="eg-plate__divider" />
-                <div className="eg-plate__section">
-                  <span className="eg-plate__label">الأرقام</span>
-                  <div className="eg-plate__slots">
-                    {(detail.plate_read?.digits_ar || "—").split("").filter(c => c.trim()).map((ch, i) => (
-                      <span key={i} className="eg-plate__slot">{ch}</span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
+              );
+            })()}
 
             {/* Correction + notes + actions */}
             <div style={{ display: "grid", gap: "0.6rem", marginTop: "0.75rem" }}>

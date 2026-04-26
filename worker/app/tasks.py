@@ -177,6 +177,10 @@ def process_event(event_id: str, inference_run_id: str) -> dict:
                     plate_token_detections = runtime.detect_plate_tokens(plate_crop)
                     plate_result = reconstruct_plate(plate_token_detections)
                     plate_confidence = plate_result.plate_confidence
+                    
+                    if "غير" in plate_result.display_summary_ar:
+                        association.flags.add("incomplete_plate_reading")
+                        
                     plate_crop_key = f"events/{event.id}/cases/{case.id}/plate_crop.png"
                     plate_asset = _store_asset(
                         db,
@@ -211,7 +215,10 @@ def process_event(event_id: str, inference_run_id: str) -> dict:
                             raw_debug_payload={"raw_token_detections": plate_token_detections},
                             model_version=runtime.plate_model.version,
                             association_score=association.plate_score,
-                            is_confident=plate_payload["plate_confidence"] >= float(settings_map["plate.direct_issue_threshold"]),
+                            is_confident=(
+                                plate_payload["plate_confidence"] >= float(settings_map["plate.direct_issue_threshold"])
+                                and "غير" not in plate_payload["display_summary_ar"]
+                            ),
                         )
                     )
                     case.raw_debug_payload["plate_detection"] = {

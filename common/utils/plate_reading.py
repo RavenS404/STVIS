@@ -13,12 +13,13 @@ from common.constants.plate_mapping import (
 )
 
 # ── Confidence thresholds ────────────────────────────────────────────
-DEFAULT_CHAR_CONF_THRESHOLD = 0.55   # tokens below this are discarded
+DEFAULT_CHAR_CONF_THRESHOLD = 0.45   # tokens below this are discarded
 MIN_PLATE_CONF_FOR_DISPLAY = 0.30    # plate avg below → "unclear"
 MIN_TOKEN_COUNT = 3                  # fewer surviving tokens → "unclear"
 
 # ── IoU threshold for deduplication ──────────────────────────────────
-IOU_DEDUP_THRESHOLD = 0.45
+IOU_DEDUP_SAME_CLASS_THRESHOLD = 0.45
+IOU_DEDUP_DIFF_CLASS_THRESHOLD = 0.70
 
 
 @dataclass(slots=True)
@@ -164,9 +165,20 @@ def _deduplicate_tokens(tokens: Sequence[PlateToken]) -> list[PlateToken]:
     """Remove overlapping detections, keeping highest confidence."""
     deduplicated: list[PlateToken] = []
     for token in sorted(tokens, key=lambda item: item.confidence, reverse=True):
-        if any(_token_iou(token, existing) >= IOU_DEDUP_THRESHOLD for existing in deduplicated):
-            continue
-        deduplicated.append(token)
+        is_duplicate = False
+        for existing in deduplicated:
+            iou = _token_iou(token, existing)
+            # If same class, aggressively deduplicate
+            if existing.normalized_label == token.normalized_label and iou >= IOU_DEDUP_SAME_CLASS_THRESHOLD:
+                is_duplicate = True
+                break
+            # If different class, only deduplicate if they strongly overlap (almost same box)
+            if iou >= IOU_DEDUP_DIFF_CLASS_THRESHOLD:
+                is_duplicate = True
+                break
+        
+        if not is_duplicate:
+            deduplicated.append(token)
     return sorted(deduplicated, key=lambda item: (item.center_y, item.center_x))
 
 
@@ -294,6 +306,10 @@ def reconstruct_plate(
         display_summary_ar = "نتيجة غير مؤكدة"
         normalized_search_value = "UNKNOWN_CLASS_DETECTED"
         arabic_text_display = "نتيجة غير مؤكدة"
+    elif not letters_ar or not digits_ar:
+        display_summary_ar = "قراءة غير مكتملة"
+        normalized_search_value = "INCOMPLETE"
+        arabic_text_display = "قراءة غير مكتملة"
 
     return PlateReadResult(
         raw_text_visual=" | ".join(raw_visual_rows),

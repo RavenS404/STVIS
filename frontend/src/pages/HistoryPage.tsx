@@ -1,5 +1,5 @@
 import { useDeferredValue, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
 import { EmptyState } from "../components/EmptyState";
@@ -20,6 +20,7 @@ const STATE_OPTIONS = [
 export function HistoryPage() {
   const [search, setSearch] = useState("");
   const [stateFilter, setStateFilter] = useState("");
+  const navigate = useNavigate();
   const debouncedSearch = useDeferredValue(search);
 
   const { data, isLoading } = useQuery({
@@ -33,6 +34,10 @@ export function HistoryPage() {
   });
 
   if (isLoading) return <LoadingBlock />;
+
+  // Build list of case IDs for prev/next context passed to CaseDetailsPage
+  const historyIds = data?.items.map((item) => item.id) ?? [];
+  const historyNavState = { from: "history", ids: historyIds };
 
   return (
     <section className="page-grid">
@@ -67,7 +72,12 @@ export function HistoryPage() {
             {data.items.map((item) => (
               <div key={item.id} className="table-row table-row--history">
                 <div>
-                  <Link to={`/cases/${item.id}`} className="table-link">
+                  {/* Pass history navigation context so CaseDetailsPage can do prev/next */}
+                  <Link
+                    to={`/cases/${item.id}`}
+                    state={historyNavState}
+                    className="table-link"
+                  >
                     {formatCaseNumber(item.case_number)}
                   </Link>
                   <small>{formatDateTimeAr(item.created_at)}</small>
