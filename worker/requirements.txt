@@ -1,0 +1,9 @@
+celery==5.5.3
+sqlalchemy==2.0.43
+psycopg[binary]==3.2.12
+ultralytics==8.3.197
+torch==2.8.0
+minio==7.2.18
+Pillow==11.3.0
+pydantic-settings==2.11.0
+requests==2.32.5

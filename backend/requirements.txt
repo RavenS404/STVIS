@@ -1,0 +1,13 @@
+fastapi==0.116.1
+uvicorn[standard]==0.35.0
+sqlalchemy==2.0.43
+psycopg[binary]==3.2.12
+alembic==1.16.5
+pydantic-settings==2.11.0
+argon2-cffi==25.1.0
+python-multipart==0.0.20
+minio==7.2.18
+celery==5.5.3
+requests==2.32.5
+Pillow==11.3.0
+orjson==3.11.3

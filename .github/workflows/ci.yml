@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  backend-tests:
+    name: Backend Tests (pytest)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend test dependencies
+        run: |
+          pip install --upgrade pip
+          pip install \
+            fastapi \
+            sqlalchemy \
+            pydantic-settings \
+            pydantic[email] \
+            passlib \
+            python-jose \
+            pytest \
+            pytest-asyncio \
+            httpx \
+            psycopg[binary] \
+            minio \
+            pika \
+            celery \
+            pillow \
+            numpy
+
+      - name: Run backend tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/backend
+          # Use a minimal in-memory-safe environment for unit tests
+          SECRET_KEY: ci-test-secret-key-not-for-production
+          DATABASE_URL: sqlite:///./test.db
+          RABBITMQ_URL: amqp://guest:guest@localhost:5672//
+          MINIO_ENDPOINT: localhost:9000
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: minioadmin
+          MINIO_BUCKET: stvis-evidence
+          MINIO_SECURE: "false"
+          VIOLATION_MODEL_PATH: Ai_models/violation_detection.pt
+          PLATE_MODEL_PATH: Ai_models/plate_detection.pt
+          DEFAULT_ADMIN_USERNAME: admin
+          DEFAULT_ADMIN_PASSWORD: Admin@123456
+          DEFAULT_SUPERVISOR_USERNAME: supervisor
+          DEFAULT_SUPERVISOR_PASSWORD: Supervisor@123456
+          DEMO_DEVICE_CODE: CAM-01
+          DEMO_DEVICE_NAME: test-device
+          DEMO_DEVICE_TOKEN: test-token
+          FRONTEND_ORIGIN: http://localhost:8080
+        run: |
+          python -m pytest backend/tests -v --tb=short
+
+  frontend-build:
+    name: Frontend Build (TypeScript + Vite)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build production bundle
+        working-directory: frontend
+        run: npm run build
+
+      - name: Verify build output exists
+        run: |
+          test -d frontend/dist && echo "✅ Build output exists" || (echo "❌ No dist folder" && exit 1)

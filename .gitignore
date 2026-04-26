@@ -1,0 +1,93 @@
+# ── Python ──────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib64/
+.env
+.venv/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.log
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ── Node / Frontend ──────────────────────────────────────
+node_modules/
+frontend/dist/
+frontend/.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.next/
+.nuxt/
+.cache/
+
+# ── Docker local volumes / data ──────────────────────────
+# Named volumes are managed by Docker, but bind-mount data dirs
+postgres-data/
+rabbitmq-data/
+minio-data/
+data/
+
+# ── Secrets / environment ────────────────────────────────
+.env
+!.env.example
+*.pem
+*.key
+*.crt
+
+# ── IDE / Editor ─────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ── OS ───────────────────────────────────────────────────
+__MACOSX/
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Desktop.ini
+
+# ── Test / debug outputs ─────────────────────────────────
+test-output/
+debug-output/
+*.tmp
+*.temp
+tmp-*.jpg
+tmp-*.png
+single_image_result.json
+
+# ── Logs ─────────────────────────────────────────────────
+logs/
+*.log
+
+# Keep these:
+!.env.example
+!.gitattributes
+!README.md
+!docker-compose.yml
+!docker-compose.dev.yml
