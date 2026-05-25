@@ -1,9 +1,9 @@
 param(
-    [string]$Folder = ".\\test-images",
+    [string]$Folder = ".\\test_images3",
     [string]$ApiBaseUrl = "http://localhost:8000",
     [string]$DeviceCode = "CAM-01",
     [string]$DeviceToken = "stvis-device-demo-token",
-    [int]$Limit = 10,
+    [int]$Limit = 13,
     [switch]$Recurse,
     [int]$DelayMs = 0,
     [string]$ExternalRefPrefix = "bulk-test"

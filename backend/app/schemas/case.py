@@ -58,6 +58,8 @@ class CaseListItem(BaseModel):
     vehicle_confidence: float
     event_id: str
     plate_text_ar: str | None = None
+    plate_letters_ar: str | None = None
+    plate_digits_ar: str | None = None
     plate_confidence: float | None = None
     violation_summary_ar: str | None = None
     created_at: str
@@ -98,6 +100,32 @@ class CaseDecisionRequest(BaseModel):
     notes: str | None = None
     plate_override_ar: str | None = None
     confirmed_violation_ids: list[str] | None = None
+
+
+class CaseUpdateRequest(BaseModel):
+    plate_override_ar: str | None = None
+    status: str | None = None
+    notes: str | None = None
+
+
+class CaseViolationUpdateRequest(BaseModel):
+    code: str | None = None
+    display_name_ar: str | None = None
+    display_name_en: str | None = None
+    confidence: float | None = None
+    actionable: bool | None = None
+    review_required: bool | None = None
+    is_highlighted: bool | None = None
+
+
+class CaseViolationCreateRequest(BaseModel):
+    code: str
+    display_name_ar: str
+    display_name_en: str
+    confidence: float | None = None
+    actionable: bool | None = True
+    review_required: bool | None = False
+    is_highlighted: bool | None = False
 
 
 class CaseFilters(BaseModel):

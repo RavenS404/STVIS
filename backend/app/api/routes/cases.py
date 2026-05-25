@@ -2,9 +2,26 @@ from fastapi import APIRouter, Depends, Request
 
 from app.api.deps import CurrentUser, DbSession, get_client_ip, get_request_id, require_roles
 from app.models.user import User
-from app.schemas.case import CaseDecisionRequest, CaseDetail, CaseListResponse
+from app.schemas.case import (
+    CaseDecisionRequest,
+    CaseDetail,
+    CaseListResponse,
+    CaseUpdateRequest,
+    CaseViolationCreateRequest,
+    CaseViolationUpdateRequest,
+)
 from app.schemas.common import MessageResponse, PageMeta
-from app.services.case_service import apply_case_decision, dispatch_rerun_inference, get_case_detail, list_cases, rerun_event_inference
+from app.services.case_service import (
+    apply_case_decision,
+    create_case_violation,
+    delete_case_violation,
+    dispatch_rerun_inference,
+    get_case_detail,
+    list_cases,
+    rerun_event_inference,
+    update_case,
+    update_case_violation,
+)
 from common.constants.enums import UserRole
 
 router = APIRouter()
@@ -36,13 +53,35 @@ def case_detail(case_id: str, db: DbSession, _user=Depends(require_roles(UserRol
     return CaseDetail(**get_case_detail(db, case_id))
 
 
+@router.patch("/{case_id}", response_model=MessageResponse)
+def update_case_route(
+    case_id: str,
+    payload: CaseUpdateRequest,
+    request: Request,
+    db: DbSession,
+    current_user: User = Depends(require_roles(
+        UserRole.ADMIN, UserRole.SUPERVISOR)),
+) -> MessageResponse:
+    update_case(
+        db,
+        case_id=case_id,
+        user=current_user,
+        payload=payload.dict(exclude_none=True),
+        request_id=get_request_id(request),
+        ip_address=get_client_ip(request),
+    )
+    db.commit()
+    return MessageResponse(message="Case updated successfully")
+
+
 @router.post("/{case_id}/decision", response_model=MessageResponse)
 def case_decision(
     case_id: str,
     payload: CaseDecisionRequest,
     request: Request,
     db: DbSession,
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPERVISOR)),
+    current_user: User = Depends(require_roles(
+        UserRole.ADMIN, UserRole.SUPERVISOR)),
 ) -> MessageResponse:
     apply_case_decision(
         db,
@@ -57,6 +96,71 @@ def case_decision(
     )
     db.commit()
     return MessageResponse(message="Case updated successfully")
+
+
+@router.post("/{case_id}/violations", response_model=MessageResponse)
+def create_case_violation_route(
+    case_id: str,
+    payload: CaseViolationCreateRequest,
+    request: Request,
+    db: DbSession,
+    current_user: User = Depends(require_roles(
+        UserRole.ADMIN, UserRole.SUPERVISOR)),
+) -> MessageResponse:
+    create_case_violation(
+        db,
+        case_id=case_id,
+        user=current_user,
+        payload=payload.dict(exclude_none=True),
+        request_id=get_request_id(request),
+        ip_address=get_client_ip(request),
+    )
+    db.commit()
+    return MessageResponse(message="Violation created successfully")
+
+
+@router.patch("/{case_id}/violations/{violation_id}", response_model=MessageResponse)
+def update_case_violation_route(
+    case_id: str,
+    violation_id: str,
+    payload: CaseViolationUpdateRequest,
+    request: Request,
+    db: DbSession,
+    current_user: User = Depends(require_roles(
+        UserRole.ADMIN, UserRole.SUPERVISOR)),
+) -> MessageResponse:
+    update_case_violation(
+        db,
+        case_id=case_id,
+        violation_id=violation_id,
+        user=current_user,
+        payload=payload.dict(exclude_none=True),
+        request_id=get_request_id(request),
+        ip_address=get_client_ip(request),
+    )
+    db.commit()
+    return MessageResponse(message="Violation updated successfully")
+
+
+@router.delete("/{case_id}/violations/{violation_id}", response_model=MessageResponse)
+def delete_case_violation_route(
+    case_id: str,
+    violation_id: str,
+    request: Request,
+    db: DbSession,
+    current_user: User = Depends(require_roles(
+        UserRole.ADMIN, UserRole.SUPERVISOR)),
+) -> MessageResponse:
+    delete_case_violation(
+        db,
+        case_id=case_id,
+        violation_id=violation_id,
+        user=current_user,
+        request_id=get_request_id(request),
+        ip_address=get_client_ip(request),
+    )
+    db.commit()
+    return MessageResponse(message="Violation deleted successfully")
 
 
 @router.post("/events/{event_id}/rerun", response_model=MessageResponse)

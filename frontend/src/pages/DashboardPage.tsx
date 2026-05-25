@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 
 import { EmptyState } from "../components/EmptyState";
 import { LoadingBlock } from "../components/LoadingBlock";
@@ -17,6 +18,7 @@ export function DashboardPage() {
   const casesByState = data.cases_by_state ?? {};
   const violationsByCode = data.violations_by_code ?? {};
   const recentCases = Array.isArray(data.recent_cases) ? data.recent_cases : [];
+  const dashboardNavState = { from: "dashboard", ids: recentCases.map((item) => item.id) };
 
   return (
     <div className="page-grid">
@@ -37,14 +39,13 @@ export function DashboardPage() {
         <div className="table-like">
           {recentCases.length ? (
             recentCases.map((item) => (
-              <div key={item.case_number} className="table-row table-row--recent">
+              <Link key={item.id} to={`/cases/${item.id}`} state={dashboardNavState} className="table-row table-row--recent table-row--link">
                 <div>
                   <strong>{formatCaseNumber(item.case_number)}</strong>
                   <small>{formatDateTimeAr(item.created_at)}</small>
                 </div>
                 <StatusBadge state={item.state} />
-                <span>{translateState(item.state)}</span>
-              </div>
+              </Link>
             ))
           ) : (
             <div className="empty-state compact-empty">لا توجد حالات حديثة بعد.</div>

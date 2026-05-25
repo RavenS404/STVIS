@@ -6,7 +6,7 @@ from common.utils.plate_reading import reconstruct_plate
 # ── A. Digit + letter tokens are sorted correctly (Egyptian convention) ──
 
 def test_letters_before_digits_in_display():
-    """Letters come first, then digits, both sorted by x_center."""
+    """Letters come first, then digits, both sorted right-to-left."""
     result = reconstruct_plate(
         [
             {"label": "1", "confidence": 0.95, "bbox": [10, 10, 20, 30]},
@@ -15,9 +15,9 @@ def test_letters_before_digits_in_display():
             {"label": "ba2", "confidence": 0.87, "bbox": [55, 10, 67, 30]},
         ]
     )
-    assert result.letters_ar == "اب"
-    assert result.digits_ar == "١٢"
-    assert result.display_summary_ar == "اب ١٢"
+    assert result.letters_ar == "با"
+    assert result.digits_ar == "٢١"
+    assert result.display_summary_ar == "با ٢١"
 
 
 # ── B. Unknown class returns UNKNOWN_CLASS and does not enter text ──
@@ -106,7 +106,7 @@ def test_no_auto_completion_of_missing_chars():
 # ── G. One-row plate follows Egyptian convention ──
 
 def test_one_row_egyptian_convention():
-    """One-row plate: letters sorted by x_center, then digits sorted by x_center."""
+    """One-row plate: letters and digits are read right-to-left."""
     result = reconstruct_plate(
         [
             {"label": "7", "confidence": 0.87, "bbox": [6, 28, 18, 56]},
@@ -118,17 +118,17 @@ def test_one_row_egyptian_convention():
         ]
     )
     assert result.row_count == 1
-    # Letters sorted by x_center: sad(64) waw(84) alf(103)
-    assert result.letters_ar == "صوا"
-    # Digits sorted by x_center: 7(6) 1(33) 3(46)
-    assert result.digits_ar == "٧١٣"
-    assert result.display_summary_ar == "صوا ٧١٣"
+    # Letters sorted right-to-left: alf(103) waw(84) sad(64)
+    assert result.letters_ar == "اوص"
+    # Digits sorted right-to-left: 3(46) 1(33) 7(6)
+    assert result.digits_ar == "٣١٧"
+    assert result.display_summary_ar == "اوص ٣١٧"
 
 
 # ── H. Two-row plate follows Egyptian convention ──
 
 def test_two_row_plate_convention():
-    """Two-row plate: each row sorted independently."""
+    """Two-row plate: each row is read right-to-left independently."""
     result = reconstruct_plate(
         [
             {"label": "ha", "confidence": 0.90, "bbox": [10, 5, 20, 18]},
@@ -138,9 +138,9 @@ def test_two_row_plate_convention():
         ]
     )
     assert result.row_count == 2
-    assert result.letters_ar == "هم"
-    assert result.digits_ar == "٣٤"
-    assert result.display_summary_ar == "هم ٣٤"
+    assert result.letters_ar == "مه"
+    assert result.digits_ar == "٤٣"
+    assert result.display_summary_ar == "مه ٤٣"
 
 
 # ── I. Banner noise filtered out ──

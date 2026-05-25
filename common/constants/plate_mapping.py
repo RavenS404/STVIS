@@ -36,7 +36,22 @@ ARABIC_MAP = {
 
 # Model class 15 is "ha" — treat as alias for "ha2"
 PLATE_CLASS_ALIASES = {
+    "one": "1",
+    "two": "2",
+    "three": "3",
+    "four": "4",
+    "five": "5",
+    "six": "6",
+    "seven": "7",
+    "eight": "8",
+    "nine": "9",
+    "baa": "ba2",
+    "faa": "fa2",
+    "haa": "ha2",
     "ha": "ha2",
+    "raa": "ra2",
+    "taa": "ta2",
+    "yaa": "ya2",
 }
 
 # Character type sets for sorting and validation

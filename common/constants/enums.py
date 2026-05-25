@@ -28,6 +28,8 @@ class AssetKind(StrEnum):
     VEHICLE_CROP = "vehicle_crop"
     PLATE_CROP = "plate_crop"
     ANNOTATED_CASE = "annotated_case"
+    VIOLATIONS_ANNOTATED = "violations_annotated"
+    DRIVER_ZOOM = "driver_zoom"
 
 
 class AssociationStatus(StrEnum):
@@ -60,4 +62,3 @@ class ViolationCode(StrEnum):
     UNFASTENED_SEAT_BELT = "unfastened_seat_belt"
     USING_MOBILE = "using_mobile"
     WRONG_WAY = "wrong_way"
-

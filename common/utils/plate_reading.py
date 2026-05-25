@@ -151,11 +151,12 @@ def _filter_tokens(
         # Skip ignored/unknown classes
         if token.char_type == "unknown":
             continue
-        # Skip banner-sized boxes (full-image false positive)
+        # Skip only clear full-crop false positives. Plate crops are tight, so
+        # valid Arabic letters can legitimately occupy most of the crop height.
         width_ratio = token.width / canvas_width
         height_ratio = token.height / canvas_height
         area_ratio = width_ratio * height_ratio
-        if width_ratio > 0.42 or height_ratio > 0.82 or area_ratio > 0.18:
+        if width_ratio > 0.70 or height_ratio > 0.96 or area_ratio > 0.45:
             continue
         filtered.append(token)
     return filtered
@@ -222,14 +223,21 @@ def _select_signal_rows(rows: Sequence[list[PlateToken]]) -> list[list[PlateToke
 
 # ── Sorting: Egyptian plate convention ───────────────────────────────
 #
-# Egyptian plates visually show:   LETTERS  DIGITS   (from right)
-# In RTL display we produce:      letters_part + space + digits_part
-# Each group is internally sorted by x_center (left-to-right visual).
+# Egyptian plates are read right-to-left visually.
+# Keep the persisted/displayed text in that same visual direction so the
+# manual input and table preview do not disagree.
 
 def _sort_row_egyptian(row: Sequence[PlateToken]) -> tuple[list[PlateToken], list[PlateToken]]:
-    """Sort one row into (letters_sorted, digits_sorted) by x_center."""
-    letters = sorted([t for t in row if t.is_letter], key=lambda t: t.center_x)
-    digits = sorted([t for t in row if t.is_digit], key=lambda t: t.center_x)
+    """Sort one row into (letters_sorted, digits_sorted) in RTL visual order."""
+    letters = sorted([t for t in row if t.is_letter], key=lambda t: t.center_x, reverse=True)
+    digits = sorted([t for t in row if t.is_digit], key=lambda t: t.center_x, reverse=True)
+    return letters, digits
+
+
+def _sort_plate_groups(tokens: Sequence[PlateToken]) -> tuple[list[PlateToken], list[PlateToken]]:
+    """Keep the already row-clustered RTL order while splitting letters/digits."""
+    letters = [token for token in tokens if token.is_letter]
+    digits = [token for token in tokens if token.is_digit]
     return letters, digits
 
 
@@ -255,8 +263,7 @@ def reconstruct_plate(
     raw_visual_rows: list[str] = []
     display_rows: list[str] = []
     ordered_tokens: list[dict] = []
-    letters_flat: list[PlateToken] = []
-    digits_flat: list[PlateToken] = []
+    selected_tokens: list[PlateToken] = []
 
     for row_index, row in enumerate(rows):
         letters_sorted, digits_sorted = _sort_row_egyptian(row)
@@ -266,8 +273,7 @@ def reconstruct_plate(
         display = letters_sorted + digits_sorted
         raw_visual_rows.append(_join_raw(visual))
         display_rows.append(_join_arabic(display))
-        letters_flat.extend(letters_sorted)
-        digits_flat.extend(digits_sorted)
+        selected_tokens.extend(display)
 
         for visual_index, token in enumerate(visual):
             ordered_tokens.append(
@@ -283,6 +289,7 @@ def reconstruct_plate(
                 }
             )
 
+    letters_flat, digits_flat = _sort_plate_groups(selected_tokens)
     letters_ar = "".join(token.arabic_value for token in letters_flat)
     digits_ar = "".join(token.arabic_value for token in digits_flat)
     raw_letters = "".join(token.normalized_label for token in letters_flat)
@@ -292,13 +299,13 @@ def reconstruct_plate(
     normalized_search_value = "".join(
         token.arabic_value for token in all_display_tokens if token.arabic_value.strip()
     )
-    confidences = [token.confidence for token in filtered_tokens]
+    confidences = [token.confidence for token in selected_tokens]
     plate_confidence = round(median(confidences), 4) if confidences else 0.0
 
     # ── Anti-hallucination gates ─────────────────────────────────────
     arabic_text_display = None
 
-    if len(filtered_tokens) < MIN_TOKEN_COUNT or plate_confidence < MIN_PLATE_CONF_FOR_DISPLAY:
+    if len(selected_tokens) < MIN_TOKEN_COUNT or plate_confidence < MIN_PLATE_CONF_FOR_DISPLAY:
         display_summary_ar = "اللوحة غير واضحة"
         normalized_search_value = "LOW_CONFIDENCE"
         arabic_text_display = "اللوحة غير واضحة"
@@ -321,7 +328,7 @@ def reconstruct_plate(
         raw_letters=raw_letters,
         raw_digits=raw_digits,
         plate_confidence=plate_confidence,
-        token_count=len(filtered_tokens),
+        token_count=len(selected_tokens),
         row_count=len(rows),
         token_details=ordered_tokens,
     )

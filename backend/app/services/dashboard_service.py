@@ -13,16 +13,19 @@ def build_dashboard_summary(db: Session, *, queue_depth: int) -> dict:
     cases_by_state = {
         key: value
         for key, value in db.execute(
-            select(VehicleCase.review_state, func.count(VehicleCase.id)).group_by(VehicleCase.review_state)
+            select(VehicleCase.review_state, func.count(
+                VehicleCase.id)).group_by(VehicleCase.review_state)
         ).all()
     }
     violations_by_code = {
         key: value
         for key, value in db.execute(
-            select(CaseViolation.display_name_ar, func.count(CaseViolation.id)).group_by(CaseViolation.display_name_ar)
+            select(CaseViolation.display_name_ar, func.count(
+                CaseViolation.id)).group_by(CaseViolation.display_name_ar)
         ).all()
     }
-    start_of_day = datetime.combine(date.today(), datetime.min.time(), tzinfo=UTC)
+    start_of_day = datetime.combine(
+        date.today(), datetime.min.time(), tzinfo=UTC)
     issued_today = db.scalar(
         select(func.count(VehicleCase.id)).where(
             VehicleCase.review_state == CaseReviewState.ISSUED,
@@ -30,10 +33,16 @@ def build_dashboard_summary(db: Session, *, queue_depth: int) -> dict:
         )
     ) or 0
     escalations = db.scalar(
-        select(func.count(VehicleCase.id)).where(VehicleCase.review_state == CaseReviewState.SUPERVISOR_REVIEW_REQUIRED)
+        select(func.count(VehicleCase.id)).where(
+            VehicleCase.review_state == CaseReviewState.SUPERVISOR_REVIEW_REQUIRED)
     ) or 0
     recent_cases = [
-        {"case_number": row.case_number, "state": row.review_state.value, "created_at": row.created_at.isoformat()}
+        {
+            "id": str(row.id),
+            "case_number": row.case_number,
+            "state": row.review_state.value,
+            "created_at": row.created_at.isoformat(),
+        }
         for row in db.scalars(select(VehicleCase).order_by(VehicleCase.created_at.desc()).limit(8))
     ]
 

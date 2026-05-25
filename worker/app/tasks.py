@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 import uuid
 
 from celery.signals import heartbeat_sent, worker_ready
-from PIL import Image
+from PIL import Image, ImageEnhance, ImageFilter
 from sqlalchemy import select
 
 from app.models.ai_model import ModelProfile
@@ -21,7 +21,7 @@ from common.utils.association import associate_entities
 from common.utils.plate_reading import reconstruct_plate, serialize_plate_result
 from common.utils.policy import ViolationSnapshot, evaluate_case_policy
 from worker.app.celery_app import celery_app
-from worker.app.inference.drawing import annotate_event, crop_box
+from worker.app.inference.drawing import annotate_event, annotate_violations_only, crop_box, crop_driver_zoom
 from worker.app.inference.model_runtime import runtime
 
 
@@ -47,8 +47,10 @@ def _upsert_heartbeat(service_name: str, status: str, payload: dict) -> None:
 def on_worker_ready(**_kwargs):
     payload = runtime.warmup()
     _upsert_heartbeat("celery-worker", "ok", {"message": "worker is ready"})
-    _upsert_heartbeat("model:violation_detection", "ok", payload["violation_detection"])
-    _upsert_heartbeat("model:plate_detection", "ok", payload["plate_detection"])
+    _upsert_heartbeat("model:violation_detection", "ok",
+                      payload["violation_detection"])
+    _upsert_heartbeat("model:plate_detection", "ok",
+                      payload["plate_detection"])
 
 
 @heartbeat_sent.connect
@@ -67,6 +69,17 @@ def _load_image_from_bytes(content: bytes) -> Image.Image:
     image = Image.open(BytesIO(content))
     image.load()
     return image.convert("RGB")
+
+
+def _prepare_plate_crop_for_reading(plate_crop: Image.Image, *, scale_factor: int = 3) -> Image.Image:
+    prepared = plate_crop.convert("RGB")
+    prepared = prepared.resize(
+        (max(prepared.width * scale_factor, 1), max(prepared.height * scale_factor, 1)),
+        Image.Resampling.BICUBIC,
+    )
+    prepared = ImageEnhance.Contrast(prepared).enhance(1.18)
+    prepared = ImageEnhance.Sharpness(prepared).enhance(1.35)
+    return prepared.filter(ImageFilter.UnsharpMask(radius=1.1, percent=115, threshold=3))
 
 
 def _store_asset(db, *, event_id, case_id, kind, bytes_content, mime_type, storage, object_key, sha256=None, size=None, width=None, height=None):
@@ -108,10 +121,12 @@ def process_event(event_id: str, inference_run_id: str) -> dict:
             original_asset = event.original_asset
             original_bytes = storage.get_bytes(original_asset.object_key)
             image = _load_image_from_bytes(original_bytes)
-            detections = runtime.detect_violations(image, max_det=int(settings_map["policy.max_detections_per_event"]))
+            detections = runtime.detect_violations(image, max_det=int(
+                settings_map["policy.max_detections_per_event"]))
             associations = associate_entities(
                 detections,
-                min_plate_score=float(settings_map["association.min_plate_score"]),
+                min_plate_score=float(
+                    settings_map["association.min_plate_score"]),
                 ambiguity_gap=float(settings_map["association.ambiguity_gap"]),
             )
 
@@ -155,7 +170,8 @@ def process_event(event_id: str, inference_run_id: str) -> dict:
                 db.add(case)
                 db.flush()
 
-                vehicle_crop = crop_box(image, association.vehicle.bbox, padding=12)
+                vehicle_crop = crop_box(
+                    image, association.vehicle.bbox, padding=12)
                 vehicle_crop_key = f"events/{event.id}/cases/{case.id}/vehicle_crop.png"
                 vehicle_asset = _store_asset(
                     db,
@@ -173,14 +189,18 @@ def process_event(event_id: str, inference_run_id: str) -> dict:
 
                 plate_confidence = None
                 if association.plate is not None:
-                    plate_crop = crop_box(image, association.plate.bbox, padding=4)
-                    plate_token_detections = runtime.detect_plate_tokens(plate_crop)
+                    plate_crop = crop_box(
+                        image, association.plate.bbox, padding=8)
+                    plate_crop = _prepare_plate_crop_for_reading(
+                        plate_crop, scale_factor=3)
+                    plate_token_detections = runtime.detect_plate_tokens(
+                        plate_crop)
                     plate_result = reconstruct_plate(plate_token_detections)
                     plate_confidence = plate_result.plate_confidence
-                    
-                    if "غير" in plate_result.display_summary_ar:
-                        association.flags.add("incomplete_plate_reading")
-                        
+
+                    if "غير" in plate_result.display_summary_ar and "incomplete_plate_reading" not in association.flags:
+                        association.flags.append("incomplete_plate_reading")
+
                     plate_crop_key = f"events/{event.id}/cases/{case.id}/plate_crop.png"
                     plate_asset = _store_asset(
                         db,
@@ -212,11 +232,13 @@ def process_event(event_id: str, inference_run_id: str) -> dict:
                             row_count=plate_payload["row_count"],
                             token_details=plate_payload["token_details"],
                             plate_bbox={"bbox": list(association.plate.bbox)},
-                            raw_debug_payload={"raw_token_detections": plate_token_detections},
+                            raw_debug_payload={
+                                "raw_token_detections": plate_token_detections},
                             model_version=runtime.plate_model.version,
                             association_score=association.plate_score,
                             is_confident=(
-                                plate_payload["plate_confidence"] >= float(settings_map["plate.direct_issue_threshold"])
+                                plate_payload["plate_confidence"] >= float(
+                                    settings_map["plate.direct_issue_threshold"])
                                 and "غير" not in plate_payload["display_summary_ar"]
                             ),
                         )
@@ -230,7 +252,8 @@ def process_event(event_id: str, inference_run_id: str) -> dict:
                 violation_snapshots: list[ViolationSnapshot] = []
                 for detection in actionable_candidates:
                     catalog = VIOLATION_CATALOG[detection.label]
-                    review_required = detection.confidence < float(settings_map["violation.direct_issue_threshold"])
+                    review_required = detection.confidence < float(
+                        settings_map["violation.direct_issue_threshold"])
                     violation = CaseViolation(
                         case_id=case.id,
                         inference_run_id=run.id,
@@ -247,7 +270,8 @@ def process_event(event_id: str, inference_run_id: str) -> dict:
                     db.add(violation)
                     case.violations.append(violation)
                     violation_snapshots.append(
-                        ViolationSnapshot(code=catalog["code"], confidence=detection.confidence, actionable=bool(catalog["actionable"]))
+                        ViolationSnapshot(code=catalog["code"], confidence=detection.confidence, actionable=bool(
+                            catalog["actionable"]))
                     )
 
                 decision = evaluate_case_policy(
@@ -268,7 +292,53 @@ def process_event(event_id: str, inference_run_id: str) -> dict:
                 for violation in case.violations:
                     violation.is_highlighted = violation.code == decision.highlighted_violation_code
 
-                case_overlays.append({"case_number": case.case_number, "vehicle_bbox": list(association.vehicle.bbox)})
+                case_violation_detections = [
+                    {
+                        "label": detection.label,
+                        "confidence": detection.confidence,
+                        "bbox": list(detection.bbox),
+                    }
+                    for detection in actionable_candidates
+                ]
+                if case_violation_detections:
+                    violations_annotated_bytes = annotate_violations_only(
+                        image, case_violation_detections)
+                    violations_annotated_key = f"events/{event.id}/cases/{case.id}/violations_annotated.jpg"
+                    _store_asset(
+                        db,
+                        event_id=event.id,
+                        case_id=case.id,
+                        kind=AssetKind.VIOLATIONS_ANNOTATED,
+                        bytes_content=violations_annotated_bytes,
+                        mime_type="image/jpeg",
+                        storage=storage,
+                        object_key=violations_annotated_key,
+                        width=image.width,
+                        height=image.height,
+                    )
+
+                    driver_zoom = crop_driver_zoom(
+                        image,
+                        support_bbox=list(association.support_zone.bbox) if association.support_zone else None,
+                        vehicle_bbox=list(association.vehicle.bbox),
+                        violation_bboxes=[list(detection.bbox) for detection in actionable_candidates],
+                    )
+                    driver_zoom_key = f"events/{event.id}/cases/{case.id}/driver_zoom.png"
+                    _store_asset(
+                        db,
+                        event_id=event.id,
+                        case_id=case.id,
+                        kind=AssetKind.DRIVER_ZOOM,
+                        bytes_content=_image_bytes(driver_zoom),
+                        mime_type="image/png",
+                        storage=storage,
+                        object_key=driver_zoom_key,
+                        width=driver_zoom.width,
+                        height=driver_zoom.height,
+                    )
+
+                case_overlays.append(
+                    {"case_number": case.case_number, "vehicle_bbox": list(association.vehicle.bbox)})
                 record_audit(
                     db,
                     actor_role="system",
@@ -326,7 +396,8 @@ def process_event(event_id: str, inference_run_id: str) -> dict:
                 entity_id=str(event.id),
                 summary_ar="اكتمل تحليل الحدث وحفظ النتائج",
                 summary_en="Event inference finished and results were stored",
-                details={"cases_created": cases_created, "run_id": str(run.id)},
+                details={"cases_created": cases_created,
+                         "run_id": str(run.id)},
             )
             db.commit()
             return {"status": "ok", "event_id": event_id, "cases_created": cases_created}

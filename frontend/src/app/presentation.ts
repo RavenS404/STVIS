@@ -1,8 +1,8 @@
 import type { CaseDetail, CaseListItem, CasePlateRead, CaseViolation, UserRole } from "./types";
 
 export const BRAND_SHORT = "ITVM";
-export const BRAND_NAME = "Intelligent Traffic Violation Monitoring for Reliable and Affordable Road Safety";
-export const BRAND_TAGLINE_AR = "منصة ذكية لمراقبة المخالفات المرورية وإصدارها بشكل موثوق وبتكلفة مناسبة";
+export const BRAND_NAME = "Intelligent Traffic Violation Monitoring for Safer and Smarter Roads";
+export const BRAND_TAGLINE_AR = "منصة ذكية لمراقبة المخالفات المرورية ودعم طرق أكثر أمانًا وذكاءً";
 
 const STATE_LABELS: Record<string, string> = {
   direct_issue_ready: "جاهزة للإصدار",

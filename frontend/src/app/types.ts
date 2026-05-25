@@ -14,7 +14,7 @@ export interface DashboardSummary {
   queue_depth: number;
   escalations: number;
   issued_today: number;
-  recent_cases: Array<{ case_number: string; state: string; created_at: string }>;
+  recent_cases: Array<{ id: string; case_number: string; state: string; created_at: string }>;
 }
 
 export interface CaseViolation {
@@ -69,6 +69,8 @@ export interface CaseListItem {
   vehicle_confidence: number;
   event_id: string;
   plate_text_ar?: string | null;
+  plate_letters_ar?: string | null;
+  plate_digits_ar?: string | null;
   plate_confidence?: number | null;
   violation_summary_ar?: string | null;
   created_at: string;

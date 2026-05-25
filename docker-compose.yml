@@ -1,39 +1,42 @@
 services:
   postgres:
     image: postgres:16
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: stvis
-      POSTGRES_USER: stvis
-      POSTGRES_PASSWORD: stvis
+      POSTGRES_DB: ${POSTGRES_DB:-stvis}
+      POSTGRES_USER: ${POSTGRES_USER:-stvis}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stvis}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U stvis -d stvis"]
+      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB" ]
       interval: 10s
       timeout: 5s
       retries: 10
 
   rabbitmq:
     image: rabbitmq:3.13-management
+    restart: unless-stopped
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-stvis}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-stvis}
     ports:
       - "15672:15672"
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      test: [ "CMD", "rabbitmq-diagnostics", "check_port_connectivity" ]
       interval: 10s
       timeout: 5s
       retries: 10
 
   minio:
     image: minio/minio:RELEASE.2025-02-28T09-55-16Z
+    restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -46,21 +49,40 @@ services:
       minio:
         condition: service_started
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-      MINIO_BUCKET: ${MINIO_BUCKET}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_BUCKET: ${MINIO_BUCKET:-stvis-evidence}
     entrypoint: >
-      /bin/sh -c "
-      until mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD; do sleep 2; done &&
-      mc mb --ignore-existing local/$$MINIO_BUCKET
-      "
+      /bin/sh -c " until mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD; do sleep 2; done && mc mb --ignore-existing local/$$MINIO_BUCKET "
 
   backend:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: infra/docker/backend.Dockerfile
-    env_file:
-      - .env
+    environment:
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://stvis:stvis@postgres:5432/stvis}
+      RABBITMQ_URL: ${RABBITMQ_URL:-amqp://stvis:stvis@rabbitmq:5672//}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-stvis}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-stvis}
+      RABBITMQ_MANAGEMENT_URL: ${RABBITMQ_MANAGEMENT_URL:-http://rabbitmq:15672/api}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_BUCKET: ${MINIO_BUCKET:-stvis-evidence}
+      MINIO_SECURE: ${MINIO_SECURE:-false}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:8080}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080,http://frontend:80}
+      VIOLATION_MODEL_PATH: ${VIOLATION_MODEL_PATH:-Ai_models/violation_detection.pt}
+      PLATE_MODEL_PATH: ${PLATE_MODEL_PATH:-Ai_models/plate_detection.pt}
+      DEFAULT_ADMIN_USERNAME: ${DEFAULT_ADMIN_USERNAME:-admin}
+      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:-Admin@123456}
+      DEFAULT_SUPERVISOR_USERNAME: ${DEFAULT_SUPERVISOR_USERNAME:-supervisor}
+      DEFAULT_SUPERVISOR_PASSWORD: ${DEFAULT_SUPERVISOR_PASSWORD:-Supervisor@123456}
+      DEMO_DEVICE_CODE: ${DEMO_DEVICE_CODE:-CAM-01}
+      DEMO_DEVICE_NAME: ${DEMO_DEVICE_NAME:-North Gate}
+      DEMO_DEVICE_TOKEN: ${DEMO_DEVICE_TOKEN:-stvis-device-demo-token}
     depends_on:
       postgres:
         condition: service_healthy
@@ -71,20 +93,34 @@ services:
     ports:
       - "8000:8000"
     volumes:
+      - .:/app
       - ./Ai_models:/app/Ai_models:ro
     healthcheck:
-      test: ["CMD", "python", "-c", "import socket; sock = socket.create_connection(('127.0.0.1', 8000), 2); sock.close()"]
+      test: [ "CMD", "python", "-c", "import socket; sock = socket.create_connection(('127.0.0.1', 8000), 2); sock.close()" ]
       interval: 10s
       timeout: 5s
       retries: 12
       start_period: 20s
 
   worker:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: infra/docker/worker.Dockerfile
-    env_file:
-      - .env
+    environment:
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://stvis:stvis@postgres:5432/stvis}
+      RABBITMQ_URL: ${RABBITMQ_URL:-amqp://stvis:stvis@rabbitmq:5672//}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-stvis}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-stvis}
+      RABBITMQ_MANAGEMENT_URL: ${RABBITMQ_MANAGEMENT_URL:-http://rabbitmq:15672/api}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_BUCKET: ${MINIO_BUCKET:-stvis-evidence}
+      MINIO_SECURE: ${MINIO_SECURE:-false}
+      VIOLATION_MODEL_PATH: ${VIOLATION_MODEL_PATH:-Ai_models/violation_detection.pt}
+      PLATE_MODEL_PATH: ${PLATE_MODEL_PATH:-Ai_models/plate_detection.pt}
     depends_on:
       postgres:
         condition: service_healthy
@@ -98,6 +134,7 @@ services:
       - ./Ai_models:/app/Ai_models:ro
 
   frontend:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: infra/docker/frontend.Dockerfile

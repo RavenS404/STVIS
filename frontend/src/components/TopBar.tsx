@@ -6,8 +6,8 @@ export function TopBar() {
 
   return (
     <header className="topbar surface">
-      <div>
-        <span className="eyebrow">{BRAND_SHORT}</span>
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        <span className="eyebrow" style={{ fontSize: '1.6rem', fontWeight: 'bold', color: '#0f4c81' }}> {BRAND_SHORT} </span>
         <strong>{translateRole(user?.role)}</strong>
       </div>
       <div className="topbar__actions">

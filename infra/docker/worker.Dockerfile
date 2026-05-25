@@ -11,7 +11,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends build-essential libgl1 libglib2.0-0 libpq-dev && rm -rf /var/lib/apt/lists/*
 
 COPY worker/requirements.txt /tmp/worker-requirements.txt
-RUN pip install --no-cache-dir -r /tmp/worker-requirements.txt
+RUN pip install --no-cache-dir --default-timeout=1000 -r /tmp/worker-requirements.txt
 
 COPY . /app
 

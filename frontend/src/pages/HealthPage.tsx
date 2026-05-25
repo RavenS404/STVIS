@@ -23,12 +23,12 @@ function renderDetails(details: Record<string, unknown>) {
   if (!entries.length) return null;
   return (
     <details className="health-details">
-      <summary className="ghost-button" style={{ display: "inline-block", cursor: "pointer", marginBottom: "0.5rem" }}>عرض التفاصيل</summary>
-      <div>
+      <summary className="ghost-button health-details__summary">عرض التفاصيل</summary>
+      <div className="health-details__content">
         {entries.map(([key, value]) => (
           <div key={key} className="health-detail-row">
             <span className="eyebrow">{key}</span>
-            <span>{typeof value === "object" ? JSON.stringify(value) : String(value)}</span>
+            <span className="health-detail-row__value">{typeof value === "object" ? JSON.stringify(value) : String(value)}</span>
           </div>
         ))}
       </div>

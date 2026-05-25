@@ -14,7 +14,7 @@ export function AppLayout() {
   return (
     <div className="app-shell">
       <NavSidebar role={user.role} />
-      <div className="content-shell">
+      <div className="content-shell" style={{ display: "flex", flexDirection: "column" }}>
         <TopBar />
         <Outlet />
       </div>
