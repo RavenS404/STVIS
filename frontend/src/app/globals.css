@@ -168,7 +168,7 @@ label {
 .badge--issued,
 .badge--ok,
 .badge--confident,
-.badge--no_violation {
+.badge--no-violation {
   background: var(--success-soft);
   color: var(--success);
 }
@@ -320,6 +320,17 @@ label {
   background: var(--brand-soft);
   color: var(--brand);
   font-weight: 700;
+}
+
+.violation-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.violation-chip > span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .sidebar .nav-link--active {
@@ -794,6 +805,46 @@ label {
 .selected-violation-summary strong,
 .queue-highlight strong {
   overflow-wrap: anywhere;
+}
+
+.queue-confidence-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.queue-confidence-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.queue-confidence-item > span:first-child {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.violation-confidence-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+}
+
+.violation-confidence-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  max-width: 100%;
+  padding: 0.25rem 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--muted);
+  font-size: 0.82rem;
 }
 
 .case-action-row {
@@ -1362,4 +1413,8 @@ label {
   .evidence-thumbnails {
     grid-template-columns: 1fr;
   }
+}
+
+.primary-button{
+  margin-top: 1rem;
 }

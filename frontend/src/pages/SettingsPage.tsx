@@ -30,7 +30,7 @@ function getSettingMeta(key: string) {
 export function SettingsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { data, isLoading } = useQuery({ queryKey: ["settings"], queryFn: fetchSettings });
+  const { data, isLoading, isError } = useQuery({ queryKey: ["settings"], queryFn: fetchSettings });
   const [drafts, setDrafts] = useState<Record<string, string>>({});
 
   const mutation = useMutation({
@@ -48,6 +48,7 @@ export function SettingsPage() {
 
   if (user?.role !== "admin") return <Navigate to="/" replace />;
   if (isLoading) return <LoadingBlock />;
+  if (isError) return <EmptyState title="تعذر تحميل الإعدادات" subtitle="حاولي تحديث الصفحة مرة أخرى." />;
   if (!data?.length) return <EmptyState title="لا توجد إعدادات" />;
 
   // Group settings by category

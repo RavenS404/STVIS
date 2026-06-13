@@ -10,7 +10,7 @@ import { createDevice, fetchDevices, fetchModels, rotateDeviceToken } from "../s
 export function DevicesPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { data, isLoading } = useQuery({ queryKey: ["devices"], queryFn: fetchDevices });
+  const { data, isLoading, isError } = useQuery({ queryKey: ["devices"], queryFn: fetchDevices });
   const modelsQuery = useQuery({ queryKey: ["models"], queryFn: fetchModels });
   const [tokenReveal, setTokenReveal] = useState<string | null>(null);
   const [form, setForm] = useState({ code: "", name: "", location_label: "", notes: "" });
@@ -58,7 +58,9 @@ export function DevicesPage() {
           ملاحظات
           <input value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} />
         </label>
-        <button className="primary-button" type="submit">إنشاء جهاز</button>
+        <button className="primary-button" type="submit" disabled={createMutation.isPending}>
+          {createMutation.isPending ? "جارٍ الإنشاء..." : "إنشاء جهاز"}
+        </button>
         {tokenReveal ? <pre className="debug-block">رمز الجهاز الجديد: {tokenReveal}</pre> : null}
       </form>
 
@@ -66,7 +68,7 @@ export function DevicesPage() {
         <div className="panel-header">
           <h2>الأجهزة والنماذج</h2>
         </div>
-        {isLoading ? <LoadingBlock /> : !data?.length ? <EmptyState title="لا توجد أجهزة" /> : (
+        {isLoading ? <LoadingBlock /> : isError ? <EmptyState title="تعذر تحميل الأجهزة" subtitle="حاولي تحديث الصفحة مرة أخرى." /> : !data?.length ? <EmptyState title="لا توجد أجهزة" /> : (
           <div className="table-like">
             {data.map((item) => (
               <div key={item.id} className="table-row table-row--card">

@@ -3,7 +3,7 @@ import type { CaseDetail, CaseListItem, PaginatedResponse } from "../app/types";
 
 export interface CaseUpdatePayload {
   plate_override_ar?: string;
-  status?: "valid" | "invalid";
+  status?: "valid" | "invalid" | "ready";
   notes?: string;
 }
 

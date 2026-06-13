@@ -16,7 +16,7 @@ from app.services.inference_dispatcher import enqueue_event_processing
 from common.constants.enums import CaseReviewState, DecisionSource, EventProcessingStatus, InferenceRunStatus
 
 
-VALID_CASE_STATUS_UPDATES = {"valid", "invalid"}
+VALID_CASE_STATUS_UPDATES = {"valid", "invalid", "ready"}
 ARABIC_DIGITS = "٠١٢٣٤٥٦٧٨٩"
 EASTERN_ARABIC_DIGIT_MAP = str.maketrans("۰۱۲۳۴۵۶۷۸۹", ARABIC_DIGITS)
 WESTERN_DIGIT_MAP = str.maketrans("0123456789", ARABIC_DIGITS)
@@ -353,6 +353,10 @@ def update_case(
             case.requires_supervisor = False
             case.issued_at = now
             case.issued_by_id = user.id
+        elif requested_status == "ready":
+            case.review_state = CaseReviewState.DIRECT_ISSUE_READY
+            case.issue_ready = True
+            case.requires_supervisor = False
         else:
             case.review_state = CaseReviewState.NO_VIOLATION
             case.issue_ready = False

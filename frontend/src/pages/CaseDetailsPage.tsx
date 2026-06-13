@@ -103,12 +103,6 @@ export function CaseDetailsPage() {
     mutationFn: async () => {
       const activeCodes = caseStatus === "valid" ? selectedViolationCodes : [];
       const highlightedCode = activeCodes[0] ?? null;
-      await updateCase(caseId, {
-        plate_override_ar: plateParts.summary || undefined,
-        status: caseStatus,
-        notes: notes || undefined,
-      });
-
       await Promise.all(
         violations.map((violation) =>
           updateCaseViolation(caseId, violation.id, {
@@ -135,6 +129,12 @@ export function CaseDetailsPage() {
             });
           }),
       );
+
+      await updateCase(caseId, {
+        plate_override_ar: plateParts.summary || undefined,
+        status: activeCodes.length ? "ready" : "invalid",
+        notes: notes || undefined,
+      });
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["case", caseId] });
@@ -206,20 +206,6 @@ export function CaseDetailsPage() {
               <StatusBadge state={detail.review_state} />
             </div>
 
-            <div className="violation-chips">
-              {violations.map((violation) => (
-                <button
-                  key={violation.id}
-                  className={`tag-chip violation-chip${violation.id === selectedViolation?.id ? " tag-chip--primary" : ""}`}
-                  type="button"
-                  onClick={() => setSelectedViolationId(violation.id)}
-                >
-                  {violation.display_name_ar}
-                </button>
-              ))}
-              {!violations.length ? <span className="tag-chip">لا توجد مخالفات مسجلة</span> : null}
-            </div>
-
             <div className="plate-table-card">
               <div className="plate-table-card__header">
                 <span className="eyebrow">قراءة اللوحة</span>
@@ -281,11 +267,12 @@ export function CaseDetailsPage() {
                       <input
                         type="checkbox"
                         checked={selectedViolationCodes.includes(option.code)}
-                        onChange={(event) =>
+                        onChange={(event) => {
+                          if (event.target.checked) setCaseStatus("valid");
                           setSelectedViolationCodes((current) =>
                             event.target.checked ? Array.from(new Set([...current, option.code])) : current.filter((code) => code !== option.code),
-                          )
-                        }
+                          );
+                        }}
                       />
                       <span>{option.labelAr}</span>
                     </label>
@@ -302,6 +289,7 @@ export function CaseDetailsPage() {
               <div className="selected-violation-summary">
                 <div>
                   <span className="eyebrow">الثقة</span>
+                  <strong>{selectedViolation.display_name_ar}</strong>
                   <ConfidenceBadge value={selectedViolation.confidence} />
                 </div>
                 <div>
@@ -310,6 +298,21 @@ export function CaseDetailsPage() {
                 </div>
               </div>
             ) : null}
+
+            <div className="violation-chips">
+              {violations.map((violation) => (
+                <button
+                  key={violation.id}
+                  className={`tag-chip violation-chip${violation.id === selectedViolation?.id ? " tag-chip--primary" : ""}`}
+                  type="button"
+                  onClick={() => setSelectedViolationId(violation.id)}
+                >
+                  <span>{violation.display_name_ar}</span>
+                  <ConfidenceBadge value={violation.confidence} />
+                </button>
+              ))}
+              {!violations.length ? <span className="tag-chip">لا توجد مخالفات مسجلة</span> : null}
+            </div>
 
             <div className="button-row case-action-row">
               <button className="primary-button" onClick={() => saveMutation.mutate()} type="button" disabled={saveMutation.isPending}>
@@ -325,7 +328,7 @@ export function CaseDetailsPage() {
               </button>
             </div>
 
-            {detail.review_state !== "no_violation" ? (
+            {caseStatus === "valid" && selectedViolationCodes.length > 0 ? (
               <div className="button-row case-action-row">
                 <button className="primary-button" onClick={() => decisionMutation.mutate("issue")} type="button" disabled={decisionMutation.isPending}>إصدار</button>
                 <button className="ghost-button danger" onClick={() => decisionMutation.mutate("reject")} type="button" disabled={decisionMutation.isPending}>رفض</button>

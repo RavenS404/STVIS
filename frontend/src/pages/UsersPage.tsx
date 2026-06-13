@@ -4,13 +4,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { EmptyState } from "../components/EmptyState";
 import { LoadingBlock } from "../components/LoadingBlock";
+import { translateRole } from "../app/presentation";
 import { useAuth } from "../hooks/useAuth";
 import { createUser, fetchUsers } from "../services/admin";
 
 export function UsersPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { data, isLoading } = useQuery({ queryKey: ["users"], queryFn: fetchUsers });
+  const { data, isLoading, isError } = useQuery({ queryKey: ["users"], queryFn: fetchUsers });
   const [form, setForm] = useState({ username: "", full_name: "", role: "supervisor", password: "" });
   const mutation = useMutation({
     mutationFn: createUser,
@@ -43,28 +44,30 @@ export function UsersPage() {
         <label>
           الدور
           <select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value })}>
-            <option value="supervisor">supervisor</option>
-            <option value="admin">admin</option>
+            <option value="supervisor">مشرف</option>
+            <option value="admin">مدير</option>
           </select>
         </label>
         <label>
           كلمة المرور
           <input type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} />
         </label>
-        <button className="primary-button" type="submit">إنشاء</button>
+        <button className="primary-button" type="submit" disabled={mutation.isPending}>
+          {mutation.isPending ? "جارٍ الإنشاء..." : "إنشاء"}
+        </button>
       </form>
 
       <section className="surface">
         <div className="panel-header">
           <h2>المستخدمون الحاليون</h2>
         </div>
-        {isLoading ? <LoadingBlock /> : !data?.length ? <EmptyState title="لا يوجد مستخدمون" /> : (
+        {isLoading ? <LoadingBlock /> : isError ? <EmptyState title="تعذر تحميل المستخدمين" subtitle="حاولي تحديث الصفحة مرة أخرى." /> : !data?.length ? <EmptyState title="لا يوجد مستخدمون" /> : (
           <div className="table-like">
             {data.map((item) => (
               <div key={item.id} className="table-row">
                 <strong>{item.full_name}</strong>
                 <span>{item.username}</span>
-                <span>{item.role}</span>
+                <span>{translateRole(item.role)}</span>
               </div>
             ))}
           </div>

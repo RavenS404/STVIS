@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
+import { ConfidenceBadge } from "../components/ConfidenceBadge";
 import { EmptyState } from "../components/EmptyState";
 import { LoadingBlock } from "../components/LoadingBlock";
 import { StatusBadge } from "../components/StatusBadge";
@@ -146,6 +147,16 @@ export function HistoryPage() {
                   <div>
                     <span className="eyebrow">المخالفة</span>
                     <strong>{formatViolationSummary(item)}</strong>
+                    {item.violations.length ? (
+                      <div className="violation-confidence-list">
+                        {item.violations.map((violation) => (
+                          <span key={violation.id} className="violation-confidence-chip">
+                            {violation.display_name_ar}
+                            <ConfidenceBadge value={violation.confidence} />
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                   <StatusBadge state={item.review_state} />
                 </div>
